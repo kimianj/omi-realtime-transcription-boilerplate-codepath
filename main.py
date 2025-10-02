@@ -1,32 +1,25 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse, HTMLResponse
-import stripe
-import os
-from dotenv import load_dotenv
+from fastapi.responses import HTMLResponse
+from typing import Annotated
+from fastapi import Query
 
-# Load environment variables
-load_dotenv()
-
-# Configure Stripe
-stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "sk_test_your_secret_key_here")
-DOMAIN = os.getenv("DOMAIN", "http://localhost:8000")
-
+# Configure FastAPI app
 app = FastAPI()
 
-# Add CORS middleware to allow all origins
+# Add CORS middleware to allow all origins for the demo
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all methods
-    allow_headers=["*"],  # Allow all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
 @app.get("/", response_class=HTMLResponse)
 def home():
-    """OMI-styled demo page showing promotion codes feature"""
+    """Main demo page to trigger the checkout sessions."""
     return """
     <!DOCTYPE html>
     <html lang="en">
@@ -36,270 +29,66 @@ def home():
         <title>OMI - AI Wearable Platform | Promotion Codes Demo</title>
         <style>
             * { margin: 0; padding: 0; box-sizing: border-box; }
-            
             body {
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                 min-height: 100vh;
                 color: #333;
-            }
-            
-            .header {
-                background: rgba(255, 255, 255, 0.95);
-                backdrop-filter: blur(10px);
-                padding: 1rem 2rem;
+                text-align: center;
                 display: flex;
-                justify-content: space-between;
+                flex-direction: column;
+                justify-content: center;
                 align-items: center;
-                box-shadow: 0 2px 20px rgba(0,0,0,0.1);
-            }
-            
-            .logo {
-                font-size: 2rem;
-                font-weight: bold;
-                background: linear-gradient(135deg, #667eea, #764ba2);
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
-                background-clip: text;
-            }
-            
-            .nav-links {
-                display: flex;
                 gap: 2rem;
-                list-style: none;
             }
-            
-            .nav-links a {
-                text-decoration: none;
-                color: #666;
-                font-weight: 500;
-                transition: color 0.3s;
-            }
-            
-            .nav-links a:hover { color: #667eea; }
-            
-            .container {
-                max-width: 1200px;
-                margin: 0 auto;
-                padding: 4rem 2rem;
-            }
-            
-            .hero {
-                text-align: center;
+            .title {
                 color: white;
-                margin-bottom: 4rem;
-            }
-            
-            .hero h1 {
-                font-size: 3.5rem;
-                margin-bottom: 1rem;
-                font-weight: 700;
-            }
-            
-            .hero p {
-                font-size: 1.2rem;
-                opacity: 0.9;
-                max-width: 600px;
-                margin: 0 auto 2rem;
-                line-height: 1.6;
-            }
-            
-            .demo-section {
-                background: white;
-                border-radius: 20px;
-                padding: 3rem;
-                box-shadow: 0 20px 60px rgba(0,0,0,0.1);
-                margin-bottom: 3rem;
-            }
-            
-            .comparison {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 3rem;
-                margin-bottom: 3rem;
-            }
-            
-            .before, .after {
-                padding: 2rem;
-                border-radius: 15px;
-                text-align: center;
-            }
-            
-            .before {
-                background: #fee;
-                border: 2px solid #fcc;
-            }
-            
-            .after {
-                background: #efe;
-                border: 2px solid #cfc;
-            }
-            
-            .before h3 { color: #c33; }
-            .after h3 { color: #3c3; }
-            
-            .feature-list {
-                list-style: none;
-                padding: 1rem 0;
-            }
-            
-            .feature-list li {
-                padding: 0.5rem 0;
-                display: flex;
-                align-items: center;
-                gap: 0.5rem;
-            }
-            
-            .product-card {
-                background: linear-gradient(135deg, #667eea, #764ba2);
-                color: white;
-                padding: 2rem;
-                border-radius: 15px;
-                text-align: center;
-                margin: 2rem 0;
-            }
-            
-            .product-card h3 {
-                font-size: 1.8rem;
-                margin-bottom: 1rem;
-            }
-            
-            .price {
                 font-size: 2.5rem;
-                font-weight: bold;
-                margin: 1rem 0;
+                font-weight: 700;
+                margin-top: 2rem;
             }
-            
-            .btn-primary {
+            .controls {
+                background: rgba(255,255,255,0.1);
+                padding: 1.5rem;
+                border-radius: 10px;
+                margin-bottom: 2rem;
+                color: white;
+            }
+            .btn {
                 background: white;
                 color: #667eea;
                 border: none;
-                padding: 1rem 2rem;
-                border-radius: 50px;
-                font-size: 1.1rem;
-                font-weight: 600;
+                padding: 0.5rem 1rem;
+                border-radius: 5px;
+                margin: 0.5rem;
                 cursor: pointer;
-                transition: all 0.3s;
-                box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                font-weight: bold;
+                transition: transform 0.2s;
             }
-            
-            .btn-primary:hover {
+            .btn:hover {
                 transform: translateY(-2px);
-                box-shadow: 0 8px 25px rgba(0,0,0,0.3);
-            }
-            
-            .promo-highlight {
-                background: #fff3cd;
-                border: 2px solid #ffeaa7;
-                border-radius: 10px;
-                padding: 1.5rem;
-                margin: 2rem 0;
-                text-align: center;
-            }
-            
-            .promo-highlight h4 {
-                color: #856404;
-                margin-bottom: 0.5rem;
-            }
-            
-            @media (max-width: 768px) {
-                .comparison { grid-template-columns: 1fr; }
-                .hero h1 { font-size: 2.5rem; }
-                .container { padding: 2rem 1rem; }
             }
         </style>
     </head>
     <body>
-        <header class="header">
-            <div class="logo">OMI</div>
-            <nav>
-                <ul class="nav-links">
-                    <li><a href="#product">Product</a></li>
-                    <li><a href="#apps">Apps</a></li>
-                    <li><a href="#docs">Docs</a></li>
-                    <li><a href="#discord">Discord</a></li>
-                </ul>
-            </nav>
-        </header>
-        
-        <div class="container">
-            <div class="hero">
-                <h1>OMI AI Platform</h1>
-                <p>The #1 Open Source AI wearable: Experiment with how you capture and manage conversations with real-time transcription and AI feedback.</p>
-            </div>
-            
-            <div class="demo-section">
-                <h2 style="text-align: center; margin-bottom: 2rem; color: #333;">🎉 NEW FEATURE: Promotion Codes in Checkout</h2>
-                
-                <div class="comparison">
-                    <div class="before">
-                        <h3>❌ Before (Current OMI)</h3>
-                        <ul class="feature-list">
-                            <li>❌ No promotion code field</li>
-                            <li>❌ Users cannot apply discounts</li>
-                            <li>❌ All payments at full price</li>
-                            <li>❌ No marketing flexibility</li>
-                        </ul>
-                    </div>
-                    
-                    <div class="after">
-                        <h3>✅ After (With Our Enhancement)</h3>
-                        <ul class="feature-list">
-                            <li>✅ Promotion code input field</li>
-                            <li>✅ Automatic discount application</li>
-                            <li>✅ Real-time price updates</li>
-                            <li>✅ Marketing campaign support</li>
-                        </ul>
-                    </div>
-                </div>
-                
-                <div class="promo-highlight">
-                    <h4>🎯 Implementation: Just ONE line of code!</h4>
-                    <code style="background: #f8f9fa; padding: 0.5rem; border-radius: 5px;">allow_promotion_codes=True</code>
-                </div>
-            </div>
-            
-            <div class="product-card">
-                <h3>🎧 OMI Dev Kit 2</h3>
-                <p>Real-time conversation transcription and processing with AI feedback</p>
-                <div class="price">$69.99</div>
-                <p style="opacity: 0.9; margin-bottom: 2rem;">
-                    ✨ Speak, Transcribe, Summarize conversations<br>
-                    🧠 Action items, summaries and memories<br>
-                    📱 Available on iOS and Android
-                </p>
-                
-                <button class="btn-primary" onclick="createCheckout()">
-                    🛒 Order Now (Try Promotion Codes!)
-                </button>
-            </div>
-            
-            <div style="text-align: center; color: white; margin-top: 3rem;">
-                <p><strong>Demo Instructions:</strong></p>
-                <p>1. Click "Order Now" to see Stripe checkout with promotion code field</p>
-                <p>2. Look for the "Promotion code" link in the checkout</p>
-                <p>3. Try entering test codes (create them in Stripe Dashboard first)</p>
-            </div>
+        <h1 class="title">OMI Promotion Codes Demo</h1>
+        <div class="controls">
+            <h3>🎛️ Test Controls</h3>
+            <p>Click a button to see the behavior in action.</p>
+            <button class="btn" onclick="testWithPromoCodes()">
+                Test WITH Promotion Codes
+            </button>
+            <button class="btn" onclick="testWithoutPromoCodes()">
+                Test WITHOUT Promotion Codes
+            </button>
         </div>
         
         <script>
-            async function createCheckout() {
-                try {
-                    const response = await fetch('/create-checkout-session', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-                    const data = await response.json();
-                    if (data.checkout_url) {
-                        // Open in new tab so they can see the comparison
-                        window.open(data.checkout_url, '_blank');
-                    } else {
-                        alert('Error creating checkout session');
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                    alert('Error creating checkout session');
-                }
+            async function testWithPromoCodes() {
+                window.location.href = '/demo-checkout?enable_promotion_codes=true';
+            }
+            async function testWithoutPromoCodes() {
+                window.location.href = '/demo-checkout?enable_promotion_codes=false';
             }
         </script>
     </body>
@@ -307,272 +96,324 @@ def home():
     """
 
 
-@app.post("/create-checkout-session")
-def create_checkout_session():
+# ---
+# This is the only part you need to focus on.
+# ---
+
+@app.get("/demo-checkout", response_class=HTMLResponse)
+def demo_checkout(
+    enable_promotion_codes: Annotated[bool, Query()] = True
+):
     """
-    Create a Stripe checkout session with promotion codes enabled.
-    Enhanced version with more features from the OMI guide approach.
+    Simulates a Stripe checkout page. The presence of the promotion
+    code box is controlled by the `enable_promotion_codes` query parameter.
     """
-    try:
-        checkout_session = stripe.checkout.Session.create(
-            payment_method_types=['card'],
-            line_items=[
-                {
-                    'price_data': {
-                        'currency': 'usd',
-                        'product_data': {
-                            'name': 'OMI Dev Kit 2',
-                            'description': 'Real-time conversation transcription and processing. Action items, summaries and memories. Thousands of community apps.',
-                            'images': ['https://cdn.shopify.com/s/files/1/0854/1790/7844/files/omi-necklace-hero.png'],
-                        },
-                        'unit_amount': 6999,  # $69.99 in cents (actual OMI price)
-                    },
-                    'quantity': 1,
-                },
-            ],
-            mode='payment',  # One-time payment for hardware
-            # 🎉 KEY FEATURE: Enable promotion codes (simpler than OMI Elements guide!)
-            allow_promotion_codes=True,
-            
-            # Enhanced features inspired by OMI guide
-            customer_creation='always',  # Always create customer record
-            billing_address_collection='required',  # Collect billing address
-            phone_number_collection={'enabled': True},  # Collect phone number
-            
-            # Custom branding
-            custom_text={
-                'submit': {'message': 'Complete your OMI subscription'},
-            },
-            
-            # Callback URLs
-            success_url=DOMAIN + '/success?session_id={CHECKOUT_SESSION_ID}',
-            cancel_url=DOMAIN + '/cancel',
-            
-            # Metadata for tracking
-            metadata={
-                'integration': 'omi_realtime_transcription',
-                'version': '1.0'
-            }
-        )
-        
-        return {
-            "checkout_url": checkout_session.url,
-            "session_id": checkout_session.id
-        }
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@app.get("/success")
-def success(session_id: str):
-    """Handle successful payment"""
-    try:
-        session = stripe.checkout.Session.retrieve(session_id)
-        return {
-            "message": "Payment successful!",
-            "session_id": session_id,
-            "customer_email": session.customer_details.email if session.customer_details else None,
-            "amount_total": session.amount_total,
-            "discount": session.total_details.amount_discount if session.total_details else None
-        }
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@app.get("/cancel")
-def cancel():
-    """Handle cancelled payment"""
-    return {"message": "Payment was cancelled"}
-
-
-@app.get("/api/demo-info")
-def demo_info():
-    """API endpoint showing the promotion codes implementation details"""
-    return {
-        "feature": "Stripe Promotion Codes Integration",
-        "implementation": {
-            "key_parameter": "allow_promotion_codes=True",
-            "location": "stripe.checkout.Session.create()",
-            "effort": "Single line of code change"
-        },
-        "benefits": [
-            "Promotion code input field appears automatically",
-            "Real-time discount application",
-            "Improved conversion rates",
-            "Marketing campaign flexibility",
-            "No additional UI development needed"
-        ],
-        "technical_details": {
-            "stripe_api_version": "Latest",
-            "checkout_mode": "payment",  # For OMI hardware
-            "product": {
-                "name": "OMI Dev Kit 2",
-                "price": "$69.99",
-                "description": "Real-time conversation transcription and processing"
-            }
-        },
-        "demo_url": "http://localhost:8000",
-        "test_instructions": [
-            "1. Visit the demo homepage",
-            "2. Click 'Order Now' button",
-            "3. Look for 'Promotion code' link in Stripe checkout",
-            "4. Enter test promotion codes (create in Stripe Dashboard)",
-            "5. See automatic discount application"
-        ]
-    }
-
-
-@app.get("/api/implementation-guide", response_class=HTMLResponse)
-def implementation_guide():
-    """Technical implementation guide for OMI developers"""
-    return """
+    
+    # This is the core logic. It dynamically adds or removes the promo
+    # section's CSS based on the boolean value.
+    promo_section_style = ""
+    if not enable_promotion_codes:
+        promo_section_style = "display: none;"
+    
+    return f"""
     <!DOCTYPE html>
     <html>
     <head>
-        <title>OMI Promotion Codes - Implementation Guide</title>
+        <title>OMI Checkout - Promotion Codes Demo</title>
         <style>
-            body { font-family: 'Monaco', 'Menlo', monospace; max-width: 1000px; margin: 0 auto; padding: 2rem; background: #1e1e1e; color: #d4d4d4; }
-            .header { background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 2rem; border-radius: 10px; margin-bottom: 2rem; }
-            .code-block { background: #2d2d2d; padding: 1.5rem; border-radius: 8px; margin: 1rem 0; border-left: 4px solid #667eea; }
-            .highlight { background: #3c3c3c; padding: 0.2rem 0.5rem; border-radius: 4px; color: #9cdcfe; }
-            .section { margin: 2rem 0; }
-            .before-after { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin: 2rem 0; }
-            .before { background: #4a1a1a; padding: 1.5rem; border-radius: 8px; }
-            .after { background: #1a4a1a; padding: 1.5rem; border-radius: 8px; }
+            body {{ 
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                background: #f6f9fc;
+                margin: 0;
+                padding: 2rem;
+                min-height: 100vh;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }}
+            .checkout-container {{
+                background: white;
+                border-radius: 12px;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+                max-width: 500px;
+                width: 100%;
+                padding: 2rem;
+            }}
+            .stripe-header {{
+                text-align: center;
+                margin-bottom: 2rem;
+                padding-bottom: 1rem;
+                border-bottom: 1px solid #e6ebf1;
+            }}
+            .product-info {{
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+                margin-bottom: 2rem;
+                padding: 1rem;
+                background: #f8fafc;
+                border-radius: 8px;
+            }}
+            .product-image {{
+                width: 60px;
+                height: 60px;
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                border-radius: 8px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: white;
+                font-weight: bold;
+            }}
+            .product-details h3 {{
+                margin: 0 0 0.5rem 0;
+                color: #1a202c;
+            }}
+            .product-details p {{
+                margin: 0;
+                color: #718096;
+                font-size: 0.9rem;
+            }}
+            .price {{
+                font-weight: bold;
+                color: #2d3748;
+                margin-left: auto;
+                font-size: 1.2rem;
+            }}
+            .form-group {{
+                margin-bottom: 1.5rem;
+            }}
+            .form-group label {{
+                display: block;
+                margin-bottom: 0.5rem;
+                color: #374151;
+                font-weight: 500;
+            }}
+            .form-input {{
+                width: 100%;
+                padding: 0.75rem;
+                border: 1px solid #d1d5db;
+                border-radius: 6px;
+                font-size: 1rem;
+                transition: border-color 0.2s;
+            }}
+            .form-input:focus {{
+                outline: none;
+                border-color: #667eea;
+                box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            }}
+            .promo-section {{
+                background: #f0f9ff;
+                border: 2px solid #bfdbfe;
+                border-radius: 8px;
+                padding: 1rem;
+                margin-bottom: 1.5rem;
+            }}
+            .promo-toggle {{
+                color: #1e40af;
+                font-weight: 500;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }}
+            .promo-input {{
+                margin-top: 1rem;
+                display: none;
+            }}
+            .promo-input.show {{
+                display: block;
+            }}
+            .promo-success {{
+                margin-top: 0.5rem;
+                padding: 0.5rem;
+                background: #dcfce7;
+                border: 1px solid #16a34a;
+                border-radius: 4px;
+                color: #15803d;
+                font-size: 0.9rem;
+                display: none;
+            }}
+            .total-section {{
+                background: #f8fafc;
+                padding: 1rem;
+                border-radius: 8px;
+                margin-bottom: 2rem;
+            }}
+            .total-row {{
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 0.5rem;
+            }}
+            .total-row.final {{
+                font-weight: bold;
+                font-size: 1.1rem;
+                padding-top: 0.5rem;
+                border-top: 1px solid #e5e7eb;
+                margin-top: 0.5rem;
+                margin-bottom: 0;
+            }}
+            .discount-row {{
+                color: #059669;
+                display: none;
+            }}
+            .pay-button {{
+                width: 100%;
+                background: #667eea;
+                color: white;
+                border: none;
+                padding: 1rem;
+                border-radius: 6px;
+                font-size: 1.1rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: background 0.2s;
+            }}
+            .pay-button:hover {{
+                background: #5a67d8;
+            }}
+            .demo-badge {{
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #f59e0b;
+                color: white;
+                padding: 0.5rem 1rem;
+                border-radius: 20px;
+                font-weight: bold;
+                font-size: 0.9rem;
+                z-index: 1000;
+            }}
+            .demo-instructions {{
+                background: #fffbeb;
+                border: 1px solid #f59e0b;
+                border-radius: 8px;
+                padding: 1rem;
+                margin-bottom: 2rem;
+                font-size: 0.9rem;
+            }}
         </style>
     </head>
     <body>
-        <div class="header">
-            <h1>🚀 OMI Promotion Codes Implementation</h1>
-            <p>Complete technical guide for adding promotion codes to OMI's Stripe checkout</p>
-        </div>
+        <div class="demo-badge">🎯 DEMO MODE</div>
         
-        <div class="section">
-            <h2>📋 Current vs Enhanced Implementation</h2>
-            <div class="before-after">
-                <div class="before">
-                    <h3>❌ Current OMI Code</h3>
-                    <div class="code-block">
-checkout_session = stripe.checkout.Session.create(
-    payment_method_types=['card'],
-    line_items=[...],
-    mode='payment',
-    success_url='...',
-    cancel_url='...'
-    # Missing promotion codes!
-)
+        <div class="checkout-container">
+            <div class="stripe-header">
+                <h2>Complete your order</h2>
+                <p style="color: #6b7280; margin: 0;">Powered by Stripe</p>
+            </div>
+            
+            <div class="demo-instructions" style="background:#dcfce7;border-color:#16a34a;color:#15803d;">
+                <strong>✅ This is how OMI's checkout would look {'WITH' if enable_promotion_codes else 'WITHOUT'} promotion codes!</strong><br>
+                Look for the "Add promotion code" link below.
+            </div>
+            
+            <div class="product-info">
+                <div class="product-image">OMI</div>
+                <div class="product-details">
+                    <h3>OMI Dev Kit 2</h3>
+                    <p>Real-time conversation transcription</p>
+                </div>
+                <div class="price">$69.99</div>
+            </div>
+            
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" class="form-input" placeholder="Enter your email" value="demo@example.com">
+            </div>
+            
+            <div class="form-group">
+                <label>Card information</label>
+                <input type="text" class="form-input" placeholder="4242 4242 4242 4242" value="4242 4242 4242 4242">
+                <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                    <input type="text" class="form-input" placeholder="MM / YY" value="12 / 25" style="flex: 1;">
+                    <input type="text" class="form-input" placeholder="CVC" value="123" style="flex: 1;">
+                </div>
+            </div>
+            
+            <div class="promo-section" style="{promo_section_style}">
+                <div class="promo-toggle" onclick="togglePromoCode()">
+                    <span id="promo-icon">+</span>
+                    <span>Add promotion code</span>
+                </div>
+                <div class="promo-input" id="promo-input">
+                    <input type="text" placeholder="Enter promotion code" id="promo-code" oninput="checkPromoCode()">
+                    <div class="promo-success" id="promo-success">
+                        ✅ Promotion code "SAVE20" applied! You saved $14.00
                     </div>
                 </div>
+            </div>
+            
+            <div class="total-section">
+                <div class="total-row">
+                    <span>Subtotal</span>
+                    <span>$69.99</span>
+                </div>
+                <div class="total-row discount-row" id="discount-row">
+                    <span>Discount (SAVE20)</span>
+                    <span>-$14.00</span>
+                </div>
+                <div class="total-row final">
+                    <span>Total</span>
+                    <span id="final-total">$69.99</span>
+                </div>
+            </div>
+            
+            <button class="pay-button" onclick="simulatePayment()">
+                Pay <span id="pay-amount">$69.99</span>
+            </button>
+            
+            <div style="text-align: center; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;">
+                <p style="color: #6b7280; font-size: 0.9rem; margin: 0;">
+                    🔒 This demo shows how OMI checkout would work with promotion codes enabled<br>
+                    <strong>Implementation:</strong> Just add <code>allow_promotion_codes=True</code> to Stripe checkout
+                </p>
+            </div>
+        </div>
+        
+        <script>
+            function togglePromoCode() {{
+                const input = document.getElementById('promo-input');
+                const icon = document.getElementById('promo-icon');
                 
-                <div class="after">
-                    <h3>✅ Enhanced OMI Code</h3>
-                    <div class="code-block">
-checkout_session = stripe.checkout.Session.create(
-    payment_method_types=['card'],
-    line_items=[...],
-    mode='payment',
-    <span class="highlight">allow_promotion_codes=True,</span>  # 🎉 ADD THIS!
-    success_url='...',
-    cancel_url='...'
-)
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="section">
-            <h2>🔧 Step-by-Step Implementation</h2>
+                if (input.classList.contains('show')) {{
+                    input.classList.remove('show');
+                    icon.textContent = '+';
+                }} else {{
+                    input.classList.add('show');
+                    icon.textContent = '−';
+                    document.getElementById('promo-code').focus();
+                }}
+            }}
             
-            <h3>Step 1: Locate OMI's Checkout Code</h3>
-            <p>Find the file containing your Stripe checkout session creation (likely in your payment service)</p>
+            function checkPromoCode() {{
+                const code = document.getElementById('promo-code').value.toUpperCase();
+                const success = document.getElementById('promo-success');
+                const discountRow = document.getElementById('discount-row');
+                const finalTotal = document.getElementById('final-total');
+                const payAmount = document.getElementById('pay-amount');
+                
+                if (code === 'SAVE20' || code === 'DISCOUNT20' || code === 'OMI20') {{
+                    success.style.display = 'block';
+                    discountRow.style.display = 'flex';
+                    finalTotal.textContent = '$55.99';
+                    payAmount.textContent = '$55.99';
+                }} else {{
+                    success.style.display = 'none';
+                    discountRow.style.display = 'none';
+                    finalTotal.textContent = '$69.99';
+                    payAmount.textContent = '$69.99';
+                }}
+            }}
             
-            <h3>Step 2: Add the Parameter</h3>
-            <div class="code-block">
-# In your OMI backend payment handler:
-checkout_session = stripe.checkout.Session.create(
-    # ... existing parameters ...
-    allow_promotion_codes=True,  # ← Add this single line!
-    # ... rest of parameters ...
-)
-            </div>
-            
-            <h3>Step 3: Create Promotion Codes in Stripe</h3>
-            <p>1. Go to Stripe Dashboard → Products → Coupons</p>
-            <p>2. Create coupons (e.g., 20% off, $10 off)</p>
-            <p>3. Go to Promotion Codes → Create codes</p>
-            <p>4. Link codes to coupons</p>
-            
-            <h3>Step 4: Test & Deploy</h3>
-            <p>✅ Test in Stripe test mode</p>
-            <p>✅ Verify promotion code field appears</p>
-            <p>✅ Test discount application</p>
-            <p>✅ Deploy to production</p>
-        </div>
-        
-        <div class="section">
-            <h2>💡 Benefits for OMI</h2>
-            <ul>
-                <li>🎯 <strong>Marketing Flexibility:</strong> Run discount campaigns</li>
-                <li>📈 <strong>Conversion Boost:</strong> Reduce cart abandonment</li>
-                <li>🎉 <strong>User Experience:</strong> Customers love discounts</li>
-                <li>⚡ <strong>Zero UI Work:</strong> Stripe handles the interface</li>
-                <li>🔒 <strong>Secure:</strong> Stripe validates codes automatically</li>
-            </ul>
-        </div>
-        
-        <div class="section">
-            <h2>🧪 Live Demo</h2>
-            <p>This demo is running at <strong>http://localhost:8000</strong></p>
-            <p>Click "Order Now" to see the promotion codes feature in action!</p>
-        </div>
-        
-        <div style="text-align: center; margin-top: 3rem; padding: 2rem; background: #2d2d2d; border-radius: 10px;">
-            <h3>Ready to implement? It's just ONE line of code! 🚀</h3>
-            <code style="font-size: 1.2rem; color: #9cdcfe;">allow_promotion_codes=True</code>
-        </div>
+            function simulatePayment() {{
+                alert('🎉 Demo Complete!\\n\\nThis shows exactly how OMI customers would:\\n✅ See promotion code option\\n✅ Enter discount codes\\n✅ Get automatic price updates\\n✅ Complete purchase with discount\\n\\nImplementation: Just add allow_promotion_codes=True to your Stripe checkout!');
+            }}
+        </script>
     </body>
     </html>
     """
 
-
-@app.post("/webhook")
-def webhook(uid: str, transcript: dict):
-    print(transcript)
-
-    # Hint: The transcript contains segments with text data
-    # Hint: Access the latest segment with transcript["segments"][-1]["text"]
-    # Hint: Return a dictionary with a "message" key and the value being the notification message
-
-    # Task: Implement keyword detection and response logic of your choice
-    # example: if the word "tired" is mentioned, return a message notifying the user to take a break
-
-    # TODO: Write your code below this line
-    
-    # Get the latest transcript segment
-    if "segments" in transcript and len(transcript["segments"]) > 0:
-        latest_segment = transcript["segments"][-1]
-        latest_text = latest_segment.get("text", "").lower()
-        
-        # Keyword detection logic
-        if "tired" in latest_text:
-            return {"message": "You mentioned being tired. Consider taking a break to rest and recharge!"}
-        elif "break" in latest_text:
-            return {"message": "Good idea! Taking regular breaks is important for productivity and well-being."}
-        elif "stressed" in latest_text or "stress" in latest_text:
-            return {"message": "It sounds like you might be feeling stressed. Try some deep breathing or a short walk."}
-        elif "hungry" in latest_text:
-            return {"message": "Time for a snack! Make sure to fuel your body with nutritious food."}
-        elif "help" in latest_text:
-            return {"message": "I'm here to help! Feel free to ask if you need assistance with anything."}
-        elif "thank" in latest_text:
-            return {"message": "You're welcome! I'm glad I could help."}
-        else:
-            return {"message": f"Received transcript: '{latest_text}'"}
-    else:
-        return {"message": "No transcript segments found"}
-
-
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run(app, host="127.0.0.1", port=8000)
